@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Weather Statistics</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Historical Weather Statistics</h1>
+            <div class="header-actions">
+                <button onclick="Navigation.navigate('dashboard.html')" class="back-button">← Back to Dashboard</button>
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="start-date">Start Date:</label>
+                <input type="date" id="start-date" required>
+            </div>
+
+            <div class="control-group">
+                <label for="end-date">End Date:</label>
+                <input type="date" id="end-date" required>
+            </div>
+
+            <div class="control-group">
+                <label>Weather Indicators (Select multiple):</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="temperature" checked> Temperature
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="humidity" checked> Humidity
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="pressure"> Pressure
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="windSpeed"> Wind Speed
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" value="precipitation"> Precipitation
+                    </label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button id="analyze-btn" class="fetch-button">Analyze Historical Data</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="historical-chart"></canvas>
+        </div>
+
+        <div class="statistics-panel" id="statistics-panel"></div>
+
+        <div class="info-panel" id="info-panel">
+            <p>Select a time period and weather indicators, then click "Analyze Historical Data" to view statistics.</p>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        if (!Navigation.requireAuth()) {
+            // Redirected to login
+        } else {
+            Navigation.initNav();
+            
+            // Initialize dates
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 1);
+            
+            document.getElementById('end-date').valueAsDate = endDate;
+            document.getElementById('start-date').valueAsDate = startDate;
+            
+            let historicalChart = null;
+            
+            document.getElementById('analyze-btn').addEventListener('click', async () => {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const checkboxes = document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked');
+                const indicators = Array.from(checkboxes).map(cb => cb.value);
+                
+                if (!startDate || !endDate) {
+                    showInfo('Please select both start and end dates.', 'error');
+                    return;
+                }
+                
+                if (new Date(startDate) >= new Date(endDate)) {
+                    showInfo('Start date must be before end date.', 'error');
+                    return;
+                }
+                
+                if (new Date(startDate) > new Date()) {
+                    showInfo('Start date cannot be in the future.', 'error');
+                    return;
+                }
+                
+                if (indicators.length === 0) {
+                    showInfo('Please select at least one weather indicator.', 'error');
+                    return;
+                }
+                
+                showInfo('Analyzing historical data...', 'loading');
+                document.getElementById('analyze-btn').disabled = true;
+                
+                try {
+                    const response = await fetch('http://localhost:8000/api/weather/historical', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${Auth.getToken()}`
+                        },
+                        body: JSON.stringify({
+                            startDate,
+                            endDate,
+                            indicators
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch historical data');
+                    }
+                    
+                    const data = await response.json();
+                    renderHistoricalChart(data, indicators);
+                    displayStatistics(data, indicators);
+                    showInfo('Historical analysis completed successfully.', 'success');
+                } catch (error) {
+                    console.error('Error:', error);
+                    showInfo('Error: ' + error.message + '. Displaying sample data.', 'error');
+                    
+                    // Demo mode
+                    const sampleData = generateHistoricalSampleData(startDate, endDate, indicators);
+                    renderHistoricalChart(sampleData, indicators);
+                    displayStatistics(sampleData, indicators);
+                } finally {
+                    document.getElementById('analyze-btn').disabled = false;
+                }
+            });
+            
+            function generateHistoricalSampleData(startDate, endDate, indicators) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                const data = { datasets: {} };
+                
+                indicators.forEach(indicator => {
+                    const values = [];
+                    for (let i = 0; i <= days; i++) {
+                        const date = new Date(start);
+                        date.setDate(start.getDate() + i);
+                        
+                        let value;
+                        if (indicator === 'temperature') {
+                            value = 15 + Math.sin(i * 0.1) * 10 + Math.random() * 5;
+                        } else if (indicator === 'humidity') {
+                            value = 50 + Math.sin(i * 0.1) * 20 + Math.random() * 10;
+                        } else if (indicator === 'pressure') {
+                            value = 1013 + Math.sin(i * 0.05) * 10 + Math.random() * 5;
+                        } else if (indicator === 'windSpeed') {
+                            value = 10 + Math.sin(i * 0.15) * 8 + Math.random() * 5;
+                        } else if (indicator === 'precipitation') {
+                            value = Math.max(0, Math.sin(i * 0.2) * 5 + Math.random() * 3);
+                        }
+                        
+                        values.push({
+                            date: date.toISOString().split('T')[0],
+                            value: Math.round(value * 10) / 10
+                        });
+                    }
+                    data.datasets[indicator] = values;
+                });
+                
+                return data;
+            }
+            
+            function renderHistoricalChart(data, indicators) {
+                const ctx = document.getElementById('historical-chart').getContext('2d');
+                
+                if (historicalChart) {
+                    historicalChart.destroy();
+                }
+                
+                const colors = [
+                    'rgb(102, 126, 234)',
+                    'rgb(255, 99, 132)',
+                    'rgb(75, 192, 192)',
+                    'rgb(255, 205, 86)',
+                    'rgb(153, 102, 255)'
+                ];
+                
+                const datasets = indicators.map((indicator, index) => {
+                    const dataset = data.datasets[indicator] || [];
+                    return {
+                        label: getMetricLabel(indicator),
+                        data: dataset.map(item => item.value),
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: colors[index % colors.length].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    };
+                });
+                
+                const labels = data.datasets[indicators[0]]?.map(item => {
+                    const date = new Date(item.date);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }) || [];
+                
+                historicalChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Historical Weather Statistics',
+                                font: { size: 18, weight: 'bold' },
+                                padding: 20
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function displayStatistics(data, indicators) {
+                const panel = document.getElementById('statistics-panel');
+                let html = '<h3>Statistical Summary</h3><div class="stats-grid">';
+                
+                indicators.forEach(indicator => {
+                    const dataset = data.datasets[indicator] || [];
+                    if (dataset.length === 0) return;
+                    
+                    const values = dataset.map(d => d.value);
+                    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                    const min = Math.min(...values);
+                    const max = Math.max(...values);
+                    const sum = values.reduce((a, b) => a + b, 0);
+                    
+                    html += `
+                        <div class="stat-card">
+                            <h4>${getMetricLabel(indicator)}</h4>
+                            <div class="stat-item"><span>Average:</span> <strong>${avg.toFixed(2)} ${getMetricUnitShort(indicator)}</strong></div>
+                            <div class="stat-item"><span>Min:</span> <strong>${min.toFixed(2)} ${getMetricUnitShort(indicator)}</strong></div>
+                            <div class="stat-item"><span>Max:</span> <strong>${max.toFixed(2)} ${getMetricUnitShort(indicator)}</strong></div>
+                            <div class="stat-item"><span>Data Points:</span> <strong>${values.length}</strong></div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                panel.innerHTML = html;
+            }
+            
+            function getMetricLabel(metric) {
+                const labels = {
+                    temperature: 'Temperature',
+                    humidity: 'Humidity',
+                    pressure: 'Pressure',
+                    windSpeed: 'Wind Speed',
+                    precipitation: 'Precipitation'
+                };
+                return labels[metric] || metric;
+            }
+            
+            function getMetricUnitShort(metric) {
+                const units = {
+                    temperature: '°C',
+                    humidity: '%',
+                    pressure: 'hPa',
+                    windSpeed: 'km/h',
+                    precipitation: 'mm'
+                };
+                return units[metric] || '';
+            }
+            
+            function showInfo(message, type = '') {
+                const infoPanel = document.getElementById('info-panel');
+                infoPanel.textContent = '';
+                infoPanel.className = `info-panel ${type}`;
+                
+                if (type === 'loading') {
+                    const spinner = document.createElement('span');
+                    spinner.className = 'loading-spinner';
+                    infoPanel.appendChild(spinner);
+                }
+                
+                const text = document.createTextNode(message);
+                infoPanel.appendChild(text);
+            }
+        }
+    </script>
+</body>
+</html>
+

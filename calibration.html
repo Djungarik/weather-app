@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calibrate Information Sources</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Calibrate Information Sources</h1>
+            <div class="header-actions">
+                <button onclick="Navigation.navigate('dashboard.html')" class="back-button">← Back to Dashboard</button>
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="calibration-panel">
+            <div class="calibration-section">
+                <h2>Information Sources</h2>
+                <p class="section-description">Select the information sources you want to use for weather forecasts:</p>
+                
+                <div class="source-list">
+                    <label class="source-item">
+                        <input type="checkbox" id="source-openweather" checked>
+                        <span class="source-name">OpenWeatherMap</span>
+                        <span class="source-status">Active</span>
+                    </label>
+                    <label class="source-item">
+                        <input type="checkbox" id="source-weathergov" checked>
+                        <span class="source-name">Weather.gov</span>
+                        <span class="source-status">Active</span>
+                    </label>
+                    <label class="source-item">
+                        <input type="checkbox" id="source-accuweather">
+                        <span class="source-name">AccuWeather</span>
+                        <span class="source-status">Inactive</span>
+                    </label>
+                    <label class="source-item">
+                        <input type="checkbox" id="source-wunderground">
+                        <span class="source-name">Weather Underground</span>
+                        <span class="source-status">Inactive</span>
+                    </label>
+                    <label class="source-item">
+                        <input type="checkbox" id="source-noaa">
+                        <span class="source-name">NOAA</span>
+                        <span class="source-status">Inactive</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="calibration-section">
+                <h2>Analysis Settings</h2>
+                
+                <div class="setting-group">
+                    <label class="setting-item">
+                        <input type="checkbox" id="ai-analysis">
+                        <span class="setting-label">Enable AI Analysis</span>
+                        <span class="setting-description">Use artificial intelligence to improve forecast accuracy</span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label for="statistical-method">Statistical Analysis Method:</label>
+                    <select id="statistical-method">
+                        <option value="average">Average</option>
+                        <option value="weighted-average" selected>Weighted Average</option>
+                        <option value="median">Median</option>
+                        <option value="mode">Mode</option>
+                        <option value="ensemble">Ensemble</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="calibration-actions">
+                <button id="save-btn" class="fetch-button">Save Configuration</button>
+                <button id="reset-btn" class="reset-button">Reset to Defaults</button>
+            </div>
+
+            <div class="info-panel" id="info-panel"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        if (!Navigation.requireAuth()) {
+            // Redirected to login
+        } else {
+            Navigation.initNav();
+            
+            // Load saved configuration
+            loadConfiguration();
+            
+            // Save button
+            document.getElementById('save-btn').addEventListener('click', async () => {
+                const config = getConfiguration();
+                
+                showInfo('Saving configuration...', 'loading');
+                document.getElementById('save-btn').disabled = true;
+                
+                try {
+                    const response = await fetch('http://localhost:8000/api/calibration', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${Auth.getToken()}`
+                        },
+                        body: JSON.stringify(config)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to save configuration');
+                    }
+                    
+                    // Save to localStorage as backup
+                    localStorage.setItem('calibrationConfig', JSON.stringify(config));
+                    
+                    showInfo('Configuration saved successfully!', 'success');
+                } catch (error) {
+                    console.error('Error:', error);
+                    // Save to localStorage even if API fails
+                    localStorage.setItem('calibrationConfig', JSON.stringify(config));
+                    showInfo('Configuration saved locally. (Backend not available)', 'success');
+                } finally {
+                    document.getElementById('save-btn').disabled = false;
+                }
+            });
+            
+            // Reset button
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset to default configuration?')) {
+                    resetConfiguration();
+                    showInfo('Configuration reset to defaults.', 'success');
+                }
+            });
+            
+            // Update source status when checkbox changes
+            document.querySelectorAll('.source-item input').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const statusEl = checkbox.closest('.source-item').querySelector('.source-status');
+                    statusEl.textContent = checkbox.checked ? 'Active' : 'Inactive';
+                });
+            });
+            
+            function getConfiguration() {
+                return {
+                    sources: {
+                        openweather: document.getElementById('source-openweather').checked,
+                        weathergov: document.getElementById('source-weathergov').checked,
+                        accuweather: document.getElementById('source-accuweather').checked,
+                        wunderground: document.getElementById('source-wunderground').checked,
+                        noaa: document.getElementById('source-noaa').checked
+                    },
+                    aiAnalysis: document.getElementById('ai-analysis').checked,
+                    statisticalMethod: document.getElementById('statistical-method').value
+                };
+            }
+            
+            function loadConfiguration() {
+                const saved = localStorage.getItem('calibrationConfig');
+                if (saved) {
+                    try {
+                        const config = JSON.parse(saved);
+                        if (config.sources) {
+                            document.getElementById('source-openweather').checked = config.sources.openweather || false;
+                            document.getElementById('source-weathergov').checked = config.sources.weathergov || false;
+                            document.getElementById('source-accuweather').checked = config.sources.accuweather || false;
+                            document.getElementById('source-wunderground').checked = config.sources.wunderground || false;
+                            document.getElementById('source-noaa').checked = config.sources.noaa || false;
+                        }
+                        if (config.aiAnalysis !== undefined) {
+                            document.getElementById('ai-analysis').checked = config.aiAnalysis;
+                        }
+                        if (config.statisticalMethod) {
+                            document.getElementById('statistical-method').value = config.statisticalMethod;
+                        }
+                        
+                        // Update status displays
+                        document.querySelectorAll('.source-item input').forEach(checkbox => {
+                            const statusEl = checkbox.closest('.source-item').querySelector('.source-status');
+                            statusEl.textContent = checkbox.checked ? 'Active' : 'Inactive';
+                        });
+                    } catch (e) {
+                        console.error('Error loading configuration:', e);
+                    }
+                }
+            }
+            
+            function resetConfiguration() {
+                document.getElementById('source-openweather').checked = true;
+                document.getElementById('source-weathergov').checked = true;
+                document.getElementById('source-accuweather').checked = false;
+                document.getElementById('source-wunderground').checked = false;
+                document.getElementById('source-noaa').checked = false;
+                document.getElementById('ai-analysis').checked = false;
+                document.getElementById('statistical-method').value = 'weighted-average';
+                
+                // Update status displays
+                document.querySelectorAll('.source-item input').forEach(checkbox => {
+                    const statusEl = checkbox.closest('.source-item').querySelector('.source-status');
+                    statusEl.textContent = checkbox.checked ? 'Active' : 'Inactive';
+                });
+            }
+            
+            function showInfo(message, type = '') {
+                const infoPanel = document.getElementById('info-panel');
+                infoPanel.textContent = '';
+                infoPanel.className = `info-panel ${type}`;
+                
+                if (type === 'loading') {
+                    const spinner = document.createElement('span');
+                    spinner.className = 'loading-spinner';
+                    infoPanel.appendChild(spinner);
+                }
+                
+                const text = document.createTextNode(message);
+                infoPanel.appendChild(text);
+            }
+        }
+    </script>
+</body>
+</html>
+

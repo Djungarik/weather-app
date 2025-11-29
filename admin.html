@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Confidence Coefficients</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Admin Panel - Confidence Coefficients</h1>
+            <div class="header-actions">
+                <button onclick="Navigation.navigate('dashboard.html')" class="back-button">← Back to Dashboard</button>
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="admin-panel">
+            <div class="admin-section">
+                <h2>Generate Confidence Coefficients</h2>
+                <p class="section-description">Select information sources for which to generate confidence coefficients based on historical forecast accuracy.</p>
+                
+                <div class="source-selection">
+                    <h3>Select Information Sources:</h3>
+                    <div class="source-list">
+                        <label class="source-item">
+                            <input type="checkbox" id="admin-source-openweather" checked>
+                            <span class="source-name">OpenWeatherMap</span>
+                        </label>
+                        <label class="source-item">
+                            <input type="checkbox" id="admin-source-weathergov" checked>
+                            <span class="source-name">Weather.gov</span>
+                        </label>
+                        <label class="source-item">
+                            <input type="checkbox" id="admin-source-accuweather">
+                            <span class="source-name">AccuWeather</span>
+                        </label>
+                        <label class="source-item">
+                            <input type="checkbox" id="admin-source-wunderground">
+                            <span class="source-name">Weather Underground</span>
+                        </label>
+                        <label class="source-item">
+                            <input type="checkbox" id="admin-source-noaa">
+                            <span class="source-name">NOAA</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="admin-actions">
+                    <button id="generate-btn" class="fetch-button">Generate Confidence Coefficients</button>
+                </div>
+            </div>
+
+            <div class="admin-section" id="coefficients-section" style="display: none;">
+                <h2>Current Confidence Coefficients</h2>
+                <div class="coefficients-table" id="coefficients-table"></div>
+            </div>
+
+            <div class="info-panel" id="info-panel"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        if (!Navigation.requireAuth() || !Navigation.requireAdmin()) {
+            // Redirected
+        } else {
+            Navigation.initNav();
+            
+            document.getElementById('generate-btn').addEventListener('click', async () => {
+                const selectedSources = [];
+                document.querySelectorAll('.source-selection input[type="checkbox"]:checked').forEach(checkbox => {
+                    selectedSources.push(checkbox.id.replace('admin-source-', ''));
+                });
+                
+                if (selectedSources.length === 0) {
+                    showInfo('Please select at least one information source.', 'error');
+                    return;
+                }
+                
+                showInfo('Generating confidence coefficients...', 'loading');
+                document.getElementById('generate-btn').disabled = true;
+                
+                try {
+                    const response = await fetch('http://localhost:8000/api/admin/confidence-coefficients', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${Auth.getToken()}`
+                        },
+                        body: JSON.stringify({ sources: selectedSources })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.message || 'Failed to generate coefficients');
+                    }
+                    
+                    const data = await response.json();
+                    displayCoefficients(data.coefficients);
+                    showInfo('Confidence coefficients generated successfully!', 'success');
+                } catch (error) {
+                    console.error('Error:', error);
+                    showInfo('Error: ' + error.message + '. Displaying sample coefficients.', 'error');
+                    
+                    // Demo mode - generate sample coefficients
+                    const sampleCoefficients = {};
+                    selectedSources.forEach(source => {
+                        sampleCoefficients[source] = {
+                            coefficient: (Math.random() * 0.3 + 0.7).toFixed(3),
+                            accuracy: (Math.random() * 20 + 75).toFixed(1),
+                            lastUpdated: new Date().toISOString()
+                        };
+                    });
+                    displayCoefficients(sampleCoefficients);
+                } finally {
+                    document.getElementById('generate-btn').disabled = false;
+                }
+            });
+            
+            function displayCoefficients(coefficients) {
+                const section = document.getElementById('coefficients-section');
+                const table = document.getElementById('coefficients-table');
+                
+                section.style.display = 'block';
+                
+                let html = '<table><thead><tr><th>Source</th><th>Confidence Coefficient</th><th>Accuracy (%)</th><th>Last Updated</th></tr></thead><tbody>';
+                
+                Object.entries(coefficients).forEach(([source, data]) => {
+                    const sourceName = source.charAt(0).toUpperCase() + source.slice(1).replace(/([A-Z])/g, ' $1');
+                    const date = new Date(data.lastUpdated);
+                    html += `
+                        <tr>
+                            <td><strong>${sourceName}</strong></td>
+                            <td><span class="coefficient-value">${data.coefficient}</span></td>
+                            <td>${data.accuracy}%</td>
+                            <td>${date.toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                table.innerHTML = html;
+            }
+            
+            function showInfo(message, type = '') {
+                const infoPanel = document.getElementById('info-panel');
+                infoPanel.textContent = '';
+                infoPanel.className = `info-panel ${type}`;
+                
+                if (type === 'loading') {
+                    const spinner = document.createElement('span');
+                    spinner.className = 'loading-spinner';
+                    infoPanel.appendChild(spinner);
+                }
+                
+                const text = document.createTextNode(message);
+                infoPanel.appendChild(text);
+            }
+        }
+    </script>
+</body>
+</html>
+

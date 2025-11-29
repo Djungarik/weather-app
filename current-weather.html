@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Current Weather</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Current Weather</h1>
+            <div class="header-actions">
+                <button onclick="Navigation.navigate('dashboard.html')" class="back-button">← Back to Dashboard</button>
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="location-input">Point of Interest:</label>
+                <input type="text" id="location-input" placeholder="Enter city or location" list="location-suggestions">
+                <datalist id="location-suggestions">
+                    <option value="New York">
+                    <option value="London">
+                    <option value="Tokyo">
+                    <option value="Paris">
+                    <option value="Berlin">
+                    <option value="Moscow">
+                </datalist>
+                <button id="save-location-btn" class="save-button">Save Location</button>
+            </div>
+
+            <div class="control-group">
+                <button id="fetch-btn" class="fetch-button">Get Current Weather</button>
+            </div>
+        </div>
+
+        <div class="weather-display" id="weather-display">
+            <div class="weather-card">
+                <p class="weather-placeholder">Enter a location and click "Get Current Weather" to view current conditions.</p>
+            </div>
+        </div>
+
+        <div class="info-panel" id="info-panel"></div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        if (!Navigation.requireAuth()) {
+            // Redirected to login
+        } else {
+            Navigation.initNav();
+            
+            // Load saved location
+            const savedLocation = localStorage.getItem('savedLocation');
+            if (savedLocation) {
+                document.getElementById('location-input').value = savedLocation;
+            }
+            
+            // Save location button
+            document.getElementById('save-location-btn').addEventListener('click', () => {
+                const location = document.getElementById('location-input').value.trim();
+                if (location) {
+                    localStorage.setItem('savedLocation', location);
+                    showInfo('Location saved successfully!', 'success');
+                } else {
+                    showInfo('Please enter a location first.', 'error');
+                }
+            });
+            
+            // Fetch current weather
+            document.getElementById('fetch-btn').addEventListener('click', async () => {
+                const location = document.getElementById('location-input').value.trim();
+                
+                if (!location) {
+                    showInfo('Please enter a point of interest.', 'error');
+                    return;
+                }
+                
+                showInfo('Loading current weather...', 'loading');
+                document.getElementById('fetch-btn').disabled = true;
+                
+                try {
+                    const response = await fetch('http://localhost:8000/api/weather/current', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${Auth.getToken()}`
+                        },
+                        body: JSON.stringify({ location })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch current weather');
+                    }
+                    
+                    const data = await response.json();
+                    displayCurrentWeather(data, location);
+                    showInfo('Current weather loaded successfully.', 'success');
+                } catch (error) {
+                    console.error('Error:', error);
+                    showInfo('Error: ' + error.message + '. Displaying sample data.', 'error');
+                    
+                    // Demo mode
+                    const sampleData = {
+                        temperature: 22.5,
+                        humidity: 65,
+                        pressure: 1013.2,
+                        windSpeed: 15.3,
+                        precipitation: 0,
+                        condition: 'Partly Cloudy',
+                        icon: '⛅'
+                    };
+                    displayCurrentWeather(sampleData, location);
+                } finally {
+                    document.getElementById('fetch-btn').disabled = false;
+                }
+            });
+        }
+        
+        function displayCurrentWeather(data, location) {
+            const display = document.getElementById('weather-display');
+            display.innerHTML = `
+                <div class="weather-card">
+                    <div class="weather-header">
+                        <h2>${location}</h2>
+                        <div class="weather-icon">${data.icon || '🌤️'}</div>
+                    </div>
+                    <div class="weather-condition">${data.condition || 'Clear'}</div>
+                    <div class="weather-main">
+                        <div class="weather-temp">${data.temperature || 'N/A'}°C</div>
+                    </div>
+                    <div class="weather-details">
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Humidity</span>
+                            <span class="detail-value">${data.humidity || 'N/A'}%</span>
+                        </div>
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Pressure</span>
+                            <span class="detail-value">${data.pressure || 'N/A'} hPa</span>
+                        </div>
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Wind Speed</span>
+                            <span class="detail-value">${data.windSpeed || 'N/A'} km/h</span>
+                        </div>
+                        <div class="weather-detail-item">
+                            <span class="detail-label">Precipitation</span>
+                            <span class="detail-value">${data.precipitation || '0'} mm</span>
+                        </div>
+                    </div>
+                    <div class="weather-timestamp">Last updated: ${new Date().toLocaleString()}</div>
+                </div>
+            `;
+        }
+        
+        function showInfo(message, type = '') {
+            const infoPanel = document.getElementById('info-panel');
+            infoPanel.textContent = '';
+            infoPanel.className = `info-panel ${type}`;
+            
+            if (type === 'loading') {
+                const spinner = document.createElement('span');
+                spinner.className = 'loading-spinner';
+                infoPanel.appendChild(spinner);
+            }
+            
+            const text = document.createTextNode(message);
+            infoPanel.appendChild(text);
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast - Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <header class="auth-header">
+                <h1>Weather Forecast System</h1>
+                <p>Please login to continue</p>
+            </header>
+
+            <div class="auth-tabs">
+                <button class="tab-btn active" id="login-tab">Login</button>
+                <button class="tab-btn" id="register-tab">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <div class="auth-form active" id="login-form">
+                <form id="login-form-element">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required autocomplete="current-password">
+                    </div>
+                    <div class="form-message" id="login-message"></div>
+                    <button type="submit" class="auth-button">Login</button>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div class="auth-form" id="register-form">
+                <form id="register-form-element">
+                    <div class="form-group">
+                        <label for="register-username">Username</label>
+                        <input type="text" id="register-username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-email">Email</label>
+                        <input type="email" id="register-email" required autocomplete="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password</label>
+                        <input type="password" id="register-password" required autocomplete="new-password" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-confirm">Confirm Password</label>
+                        <input type="password" id="register-confirm" required autocomplete="new-password" minlength="6">
+                    </div>
+                    <div class="form-message" id="register-message"></div>
+                    <button type="submit" class="auth-button">Register</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        // Check if already logged in
+        if (Auth.isAuthenticated()) {
+            window.location.href = 'dashboard.html';
+        }
+
+        // Tab switching
+        document.getElementById('login-tab').addEventListener('click', () => {
+            document.getElementById('login-tab').classList.add('active');
+            document.getElementById('register-tab').classList.remove('active');
+            document.getElementById('login-form').classList.add('active');
+            document.getElementById('register-form').classList.remove('active');
+            clearMessages();
+        });
+
+        document.getElementById('register-tab').addEventListener('click', () => {
+            document.getElementById('register-tab').classList.add('active');
+            document.getElementById('login-tab').classList.remove('active');
+            document.getElementById('register-form').classList.add('active');
+            document.getElementById('login-form').classList.remove('active');
+            clearMessages();
+        });
+
+        // Login form
+        document.getElementById('login-form-element').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageEl = document.getElementById('login-message');
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                showMessage(messageEl, 'Please enter all required fields.', 'error');
+                return;
+            }
+
+            showMessage(messageEl, 'Logging in...', 'loading');
+            const result = await Auth.login(username, password);
+
+            if (result.success) {
+                showMessage(messageEl, 'Login successful! Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+            } else {
+                showMessage(messageEl, result.error || 'Invalid username or password.', 'error');
+            }
+        });
+
+        // Register form
+        document.getElementById('register-form-element').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageEl = document.getElementById('register-message');
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+
+            if (!username || !email || !password || !confirm) {
+                showMessage(messageEl, 'Please fill in all fields.', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage(messageEl, 'Password must be at least 6 characters.', 'error');
+                return;
+            }
+
+            if (password !== confirm) {
+                showMessage(messageEl, 'Passwords do not match.', 'error');
+                return;
+            }
+
+            showMessage(messageEl, 'Registering...', 'loading');
+            const result = await Auth.register(username, email, password);
+
+            if (result.success) {
+                showMessage(messageEl, 'Registration successful! Logging in...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+            } else {
+                showMessage(messageEl, result.error || 'Registration failed. Username or email may already be in use.', 'error');
+            }
+        });
+
+        function showMessage(el, message, type) {
+            el.textContent = message;
+            el.className = `form-message ${type}`;
+        }
+
+        function clearMessages() {
+            document.getElementById('login-message').textContent = '';
+            document.getElementById('login-message').className = 'form-message';
+            document.getElementById('register-message').textContent = '';
+            document.getElementById('register-message').className = 'form-message';
+        }
+    </script>
+</body>
+</html>

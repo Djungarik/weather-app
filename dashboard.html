@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Weather Forecast Dashboard</h1>
+            <div class="header-actions">
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="dashboard-card" onclick="Navigation.navigate('forecast.html')">
+                <div class="card-icon">📅</div>
+                <h2>Weather Forecast</h2>
+                <p>Get weather forecast for a specific date and time period</p>
+            </div>
+
+            <div class="dashboard-card" onclick="Navigation.navigate('current-weather.html')">
+                <div class="card-icon">🌤️</div>
+                <h2>Current Weather</h2>
+                <p>View current weather conditions for your location</p>
+            </div>
+
+            <div class="dashboard-card" onclick="Navigation.navigate('historical.html')">
+                <div class="card-icon">📊</div>
+                <h2>Historical Statistics</h2>
+                <p>Analyze historical weather data and trends</p>
+            </div>
+
+            <div class="dashboard-card" onclick="Navigation.navigate('calibration.html')">
+                <div class="card-icon">⚙️</div>
+                <h2>Calibrate Sources</h2>
+                <p>Configure information sources and analysis methods</p>
+            </div>
+
+            <div class="dashboard-card" id="admin-card" onclick="Navigation.navigate('admin.html')" style="display: none;">
+                <div class="card-icon">🔐</div>
+                <h2>Admin Panel</h2>
+                <p>Manage confidence coefficients and system settings</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script>
+        if (!Navigation.requireAuth()) {
+            // Redirected to login
+        } else {
+            Navigation.initNav();
+            
+            // Show admin card if user is admin
+            if (Auth.isAdmin()) {
+                document.getElementById('admin-card').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
+

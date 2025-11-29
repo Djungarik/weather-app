@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Forecast</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Weather Forecast</h1>
+            <div class="header-actions">
+                <button onclick="Navigation.navigate('dashboard.html')" class="back-button">← Back to Dashboard</button>
+                <span id="user-info"></span>
+                <button id="logout-btn" class="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="location-input">Point of Interest:</label>
+                <input type="text" id="location-input" placeholder="Enter city or location" list="location-suggestions">
+                <datalist id="location-suggestions">
+                    <option value="New York">
+                    <option value="London">
+                    <option value="Tokyo">
+                    <option value="Paris">
+                    <option value="Berlin">
+                    <option value="Moscow">
+                </datalist>
+                <button id="save-location-btn" class="save-button">Save Location</button>
+            </div>
+
+            <div class="control-group">
+                <label for="forecast-date">Forecast Date:</label>
+                <input type="date" id="forecast-date" required>
+            </div>
+
+            <div class="control-group">
+                <label for="forecast-time">Forecast Time:</label>
+                <input type="time" id="forecast-time" required>
+            </div>
+
+            <div class="control-group">
+                <label for="metric-select">Select Metric:</label>
+                <select id="metric-select">
+                    <option value="temperature">Temperature</option>
+                    <option value="humidity">Humidity</option>
+                    <option value="pressure">Pressure</option>
+                    <option value="windSpeed">Wind Speed</option>
+                    <option value="precipitation">Precipitation</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Interval Type:</label>
+                <div class="button-group">
+                    <button id="month-btn" class="interval-btn active">Month</button>
+                    <button id="week-btn" class="interval-btn">Week</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Comparison Period:</label>
+                <div class="button-group">
+                    <button id="year-ago-btn" class="comparison-btn active">Same Period Year Ago</button>
+                    <button id="previous-period-btn" class="comparison-btn">Previous Period</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button id="fetch-btn" class="fetch-button">Get Forecast</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="weather-chart"></canvas>
+        </div>
+
+        <div class="info-panel" id="info-panel">
+            <p>Enter a location, select forecast date and time, then click "Get Forecast" to view the weather forecast.</p>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="navigation.js"></script>
+    <script src="forecast.js"></script>
+    <script>
+        if (!Navigation.requireAuth()) {
+            // Redirected to login
+        } else {
+            Navigation.initNav();
+            
+            // Load saved location
+            const savedLocation = localStorage.getItem('savedLocation');
+            if (savedLocation) {
+                document.getElementById('location-input').value = savedLocation;
+            }
+        }
+    </script>
+</body>
+</html>
+
